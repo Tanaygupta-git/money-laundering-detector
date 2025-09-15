@@ -1,0 +1,895 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { AlertTriangle, Shield, Activity, Users, TrendingUp, Eye, Brain, Network, Search, Filter, Download, Play, Pause, Settings, MessageCircle, X } from 'lucide-react';
+import * as d3 from 'd3';
+
+const CyberShieldPrototype = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [transactions, setTransactions] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [isMonitoring, setIsMonitoring] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const svgRef = useRef();
+
+  // Chalo, kuch asli-jaise transactions banate hain
+  useEffect(() => {
+    const accounts = [
+      'ACC001', 'ACC002', 'ACC003', 'ACC004', 'ACC005', 
+      'ACC006', 'ACC007', 'ACC008', 'ACC009', 'ACC010',
+      'ACC011', 'ACC012', 'ACC013', 'ACC014', 'ACC015'
+    ];
+    
+    const generateTransactions = () => {
+      const newTransactions = [];
+      const nodes = new Map();
+      const links = [];
+      
+      // Kuch gadbad wale patterns banate hain
+      const patterns = [
+        // Round-trip pattern
+        { type: 'round-trip', accounts: ['ACC001', 'ACC002', 'ACC003', 'ACC001'] },
+        // Fan-out pattern
+        { type: 'fan-out', accounts: ['ACC004', 'ACC005', 'ACC006', 'ACC007', 'ACC008'] },
+        // Layering pattern
+        { type: 'layering', accounts: ['ACC009', 'ACC010', 'ACC002', 'ACC005'] }
+      ];
+      
+      for (let i = 0; i < 50; i++) {
+        let sender, receiver, amount, riskScore, suspiciousReason = '';
+        
+        // 30% chance hai ki gadbad pattern banega
+        if (Math.random() < 0.3) {
+          const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+          const patternAccounts = pattern.accounts;
+          sender = patternAccounts[Math.floor(Math.random() * (patternAccounts.length))];
+          receiver = patternAccounts[Math.floor(Math.random() * (patternAccounts.length))];
+          
+          if (pattern.type === 'round-trip') {
+            amount = Math.floor(Math.random() * 10000) + 5000;
+            riskScore = Math.floor(Math.random() * 25) + 75;
+            suspiciousReason = 'Round-trip pattern detected';
+          } else if (pattern.type === 'fan-out') {
+            amount = Math.floor(Math.random() * 5000) + 2000;
+            riskScore = Math.floor(Math.random() * 20) + 70;
+            suspiciousReason = 'Structuring/Smurfing pattern';
+          } else {
+            amount = Math.floor(Math.random() * 15000) + 8000;
+            riskScore = Math.floor(Math.random() * 30) + 65;
+            suspiciousReason = 'Layering scheme detected';
+          }
+        } else {
+          sender = accounts[Math.floor(Math.random() * accounts.length)];
+          receiver = accounts[Math.floor(Math.random() * accounts.length)];
+          amount = Math.floor(Math.random() * 20000) + 500;
+          riskScore = Math.floor(Math.random() * 60);
+          suspiciousReason = '';
+        }
+        
+        if (sender === receiver) continue;
+        
+        const transaction = {
+          id: `TXN${Date.now()}${i}`,
+          sender,
+          receiver,
+          amount,
+          timestamp: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
+          riskScore,
+          status: riskScore > 70 ? 'suspicious' : riskScore > 45 ? 'medium' : 'normal',
+          suspiciousReason,
+          features: {
+            velocity: Math.floor(Math.random() * 15) + 1,
+            fanOut: Math.floor(Math.random() * 8) + 1,
+            fanIn: Math.floor(Math.random() * 8) + 1,
+            pageRank: (Math.random() * 0.1).toFixed(4),
+            amountVariation: (Math.random() * 100).toFixed(1),
+            timePattern: Math.random() > 0.5 ? 'Unusual hours' : 'Normal hours'
+          },
+          location: ['New York', 'London', 'Tokyo', 'Mumbai', 'Singapore'][Math.floor(Math.random() * 5)],
+          currency: 'USD'
+        };
+        
+        newTransactions.push(transaction);
+        
+        // Graph ke liye data banate hain
+        if (!nodes.has(sender)) {
+          nodes.set(sender, { 
+            id: sender, 
+            group: 1,
+            transactions: 0,
+            totalAmount: 0
+          });
+        }
+        if (!nodes.has(receiver)) {
+          nodes.set(receiver, { 
+            id: receiver, 
+            group: 1,
+            transactions: 0,
+            totalAmount: 0
+          });
+        }
+        
+        const senderNode = nodes.get(sender);
+        const receiverNode = nodes.get(receiver);
+        
+        senderNode.transactions++;
+        senderNode.totalAmount += amount;
+        receiverNode.transactions++;
+        
+        if (transaction.status === 'suspicious') {
+          senderNode.group = 3;
+          receiverNode.group = 3;
+        } else if (transaction.status === 'medium') {
+          senderNode.group = Math.max(senderNode.group, 2);
+          receiverNode.group = Math.max(receiverNode.group, 2);
+        }
+        
+        links.push({
+          source: sender,
+          target: receiver,
+          value: amount,
+          riskScore
+        });
+        
+        if (transaction.status === 'suspicious') {
+          const alert = {
+            id: `ALERT${Date.now()}${i}`,
+            transactionId: transaction.id,
+            type: suspiciousReason || ['Smurfing', 'Round-trip', 'Layering', 'Velocity'][Math.floor(Math.random() * 4)],
+            severity: 'High',
+            timestamp: transaction.timestamp,
+            description: `${suspiciousReason || 'Suspicious pattern'} detected in transaction ${transaction.id}`,
+            priority: Math.random() > 0.5 ? 'Critical' : 'High'
+          };
+          setAlerts(prev => [alert, ...prev.slice(0, 19)]);
+        }
+      }
+      
+      setTransactions(newTransactions);
+      setGraphData({ 
+        nodes: Array.from(nodes.values()), 
+        links: links.slice(-30) // Performance ke liye links ko limit karte hain
+      });
+    };
+
+    generateTransactions();
+    
+    const interval = setInterval(() => {
+      if (isMonitoring) {
+        generateTransactions();
+      }
+    }, 15000);
+    
+    return () => clearInterval(interval);
+  }, [isMonitoring]);
+
+  // Graph ko visualize karte hain
+  useEffect(() => {
+    if (activeTab === 'graph' && graphData.nodes.length > 0) {
+      const svg = d3.select(svgRef.current);
+      svg.selectAll("*").remove();
+      
+      const width = 800;
+      const height = 500;
+      
+      const simulation = d3.forceSimulation(graphData.nodes)
+        .force("link", d3.forceLink(graphData.links).id(d => d.id).distance(100))
+        .force("charge", d3.forceManyBody().strength(-300))
+        .force("center", d3.forceCenter(width / 2, height / 2));
+      
+      const link = svg.append("g")
+        .selectAll("line")
+        .data(graphData.links)
+        .enter().append("line")
+        .attr("stroke", d => d.riskScore > 70 ? "#ef4444" : d.riskScore > 45 ? "#f59e0b" : "#10b981")
+        .attr("stroke-width", d => Math.sqrt(d.value / 1000) + 1)
+        .attr("stroke-opacity", 0.8);
+      
+      const node = svg.append("g")
+        .selectAll("circle")
+        .data(graphData.nodes)
+        .enter().append("circle")
+        .attr("r", d => Math.sqrt(d.transactions) * 3 + 5)
+        .attr("fill", d => d.group === 3 ? "#ef4444" : d.group === 2 ? "#f59e0b" : "#10b981")
+        .on("click", (event, d) => setSelectedNode(d))
+        .call(d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended));
+      
+      const label = svg.append("g")
+        .selectAll("text")
+        .data(graphData.nodes)
+        .enter().append("text")
+        .text(d => d.id)
+        .attr("font-size", 10)
+        .attr("dx", 12)
+        .attr("dy", 4);
+      
+      simulation.on("tick", () => {
+        link
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+        
+        node
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+        
+        label
+          .attr("x", d => d.x)
+          .attr("y", d => d.y);
+      });
+      
+      function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+      
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
+      
+      function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }
+    }
+  }, [activeTab, graphData]);
+
+  // AI chat ka kaam
+  const handleChatSubmit = (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    
+    const userMessage = { type: 'user', content: chatInput, timestamp: new Date() };
+    setChatMessages(prev => [...prev, userMessage]);
+    
+    // AI ka reply simulate karte hain
+    setTimeout(() => {
+      let aiResponse = '';
+      const input = chatInput.toLowerCase();
+      
+      if (input.includes('suspicious') || input.includes('flagged')) {
+        aiResponse = 'Yeh transaction unusual velocity aur high fan-out ki wajah se flag hua. Humare ML model ne transaction timing aur amount structuring mein gadbad detect ki, jo smurfing activities se milti-julti hai.';
+      } else if (input.includes('risk score')) {
+        aiResponse = 'Risk scores humare hybrid model se calculate hote hain: 40% ML anomaly detection se, 35% graph analytics (PageRank, motifs) se, aur 25% rule-based patterns se. 70% se upar wale scores automatically review ke liye flag ho jate hain.';
+      } else if (input.includes('pattern')) {
+        aiResponse = 'Humara system kayi tarah ke laundering patterns detect karta hai: Round-trip transactions, Fan-out/Fan-in schemes, Layering activities, Velocity anomalies, aur Cross-border structuring. Graph neural networks mushkil multi-hop patterns ko pehchanne mein help karte hain.';
+      } else if (input.includes('compliance')) {
+        aiResponse = 'CyberShield automated SAR generation, audit trails, aur regulatory reporting ke through FATF compliance sure karta hai. Saare detections mein evidence graphs aur explainable AI reasoning shamil hain regulatory submissions ke liye.';
+      } else {
+        aiResponse = 'Main aapki transaction risks samajhne, detection patterns explain karne, compliance requirements analyze karne, ya humare ML models ke baare mein jankari dene mein help kar sakta hoon. Aap kis topic par baat karna chahenge?';
+      }
+      
+      const aiMessage = { type: 'ai', content: aiResponse, timestamp: new Date() };
+      setChatMessages(prev => [...prev, aiMessage]);
+    }, 1000);
+    
+    setChatInput('');
+  };
+
+  // Transactions ko filter karte hain
+  const filteredTransactions = transactions.filter(t => {
+    const matchesSearch = !searchTerm || 
+      t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.receiver.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = filterStatus === 'all' || t.status === filterStatus;
+    
+    return matchesSearch && matchesFilter;
+  });
+
+  const Dashboard = () => {
+    const suspiciousCount = transactions.filter(t => t.status === 'suspicious').length;
+    const mediumRiskCount = transactions.filter(t => t.status === 'medium').length;
+    const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+    const avgRiskScore = transactions.length > 0 ? 
+      (transactions.reduce((sum, t) => sum + t.riskScore, 0) / transactions.length).toFixed(1) : 0;
+
+    return (
+      <div className="space-y-6">
+        {/* Enhanced KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Transactions</p>
+                <p className="text-2xl font-bold text-gray-900">{transactions.length}</p>
+                <p className="text-xs text-blue-600">${totalAmount.toLocaleString()} total volume</p>
+              </div>
+              <Activity className="h-8 w-8 text-blue-500" />
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">High Risk</p>
+                <p className="text-2xl font-bold text-gray-900">{suspiciousCount}</p>
+                <p className="text-xs text-red-600">{((suspiciousCount/transactions.length)*100).toFixed(1)}% of total</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-yellow-500 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Medium Risk</p>
+                <p className="text-2xl font-bold text-gray-900">{mediumRiskCount}</p>
+                <p className="text-xs text-yellow-600">Requires monitoring</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-yellow-500" />
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Avg Risk Score</p>
+                <p className="text-2xl font-bold text-gray-900">{avgRiskScore}%</p>
+                <p className="text-xs text-purple-600">ML Model accuracy: 89.6%</p>
+              </div>
+              <Brain className="h-8 w-8 text-purple-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* Real-time Control Panel */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Real-time Monitoring</h3>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setIsMonitoring(!isMonitoring)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg ${
+                  isMonitoring ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                }`}
+              >
+                {isMonitoring ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                <span>{isMonitoring ? 'Pause' : 'Resume'}</span>
+              </button>
+              <button className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg">
+                <Download className="h-4 w-4" />
+                <span>Export</span>
+              </button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h4 className="font-medium text-green-800 mb-2">System Status</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>ML Models:</span>
+                  <span className="text-green-600 font-medium">Active</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Graph Engine:</span>
+                  <span className="text-green-600 font-medium">Running</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Rule Engine:</span>
+                  <span className="text-green-600 font-medium">Online</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-800 mb-2">Processing Stats</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Throughput:</span>
+                  <span className="font-medium">1,247 TPS</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Latency:</span>
+                  <span className="font-medium">23ms avg</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Queue:</span>
+                  <span className="font-medium">12 pending</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h4 className="font-medium text-purple-800 mb-2">Model Performance</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Precision:</span>
+                  <span className="font-medium">87.3%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Recall:</span>
+                  <span className="font-medium">92.1%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>False Positives:</span>
+                  <span className="font-medium">2.1%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Priority Alerts */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2 text-red-500" />
+              Priority Alerts
+            </h3>
+            <span className="text-sm text-gray-500">Last updated: {new Date().toLocaleTimeString()}</span>
+          </div>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {alerts.slice(0, 8).map(alert => (
+              <div key={alert.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 cursor-pointer transition-colors">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      alert.priority === 'Critical' ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'
+                    }`}>
+                      {alert.priority}
+                    </span>
+                    <span className="font-medium text-red-800">{alert.type}</span>
+                  </div>
+                  <p className="text-sm text-red-600 mt-1">{alert.description}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">
+                    {new Date(alert.timestamp).toLocaleTimeString()}
+                  </p>
+                  <button 
+                    onClick={() => {
+                      const associatedTransaction = transactions.find(t => t.id === alert.transactionId);
+                      setSelectedTransaction(associatedTransaction);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 text-xs mt-1"
+                  >
+                    Investigate
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const TransactionMonitor = () => (
+    <div className="space-y-4">
+      {/* Search aur Filter controls */}
+      <div className="bg-white p-4 rounded-lg shadow-md">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Transactions search karo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-gray-400" />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Sabhi Status</option>
+                <option value="suspicious">Suspicious</option>
+                <option value="medium">Medium Risk</option>
+                <option value="normal">Normal</option>
+              </select>
+            </div>
+          </div>
+          <div className="text-sm text-gray-500">
+            {transactions.length} transactions mein se {filteredTransactions.length} dikha rahe hain
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Transaction ki details
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Risk Analysis
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Graph Features
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredTransactions.slice(0, 15).map(transaction => (
+                <tr key={transaction.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{transaction.id}</div>
+                      <div className="text-sm text-gray-500">
+                        {transaction.sender} → {transaction.receiver}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        ${transaction.amount.toLocaleString()} • {transaction.location}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <div className="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              transaction.riskScore > 70 ? 'bg-red-500' : 
+                              transaction.riskScore > 45 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${transaction.riskScore}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm font-medium">{transaction.riskScore}%</span>
+                      </div>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        transaction.status === 'suspicious' ? 'bg-red-100 text-red-800' :
+                        transaction.status === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {transaction.status}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-xs space-y-1">
+                      <div>Velocity: {transaction.features.velocity}</div>
+                      <div>Fan-out: {transaction.features.fanOut}</div>
+                      <div>PageRank: {transaction.features.pageRank}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => setSelectedTransaction(transaction)}
+                        className="text-blue-600 hover:text-blue-900 flex items-center text-sm"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Analyze
+                      </button>
+                      {transaction.status === 'suspicious' && (
+                        <button className="text-red-600 hover:text-red-900 text-sm">
+                          Flag SAR
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const GraphAnalytics = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold flex items-center">
+            <Network className="h-5 w-5 mr-2" />
+            Transaction Network Graph
+          </h3>
+          <div className="flex space-x-2">
+            <button className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">
+              View Reset karo
+            </button>
+            <button className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm">
+              Graph Export karo
+            </button>
+          </div>
+        </div>
+        
+        <div className="border rounded-lg p-4 bg-gray-50">
+          <svg ref={svgRef} width="800" height="500" className="w-full h-auto"></svg>
+          <div className="mt-4 flex flex-wrap items-center space-x-6 text-sm">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span>Normal Risk</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <span>Medium Risk</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span>High Risk</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h4 className="font-medium mb-4">Detected Patterns</h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-red-50 rounded">
+              <span className="font-medium text-red-800">Round-trip Transactions</span>
+              <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-sm">{transactions.filter(t => t.suspiciousReason.includes('Round-trip')).length}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-orange-50 rounded">
+              <span className="font-medium text-orange-800">Fan-out Patterns</span>
+              <span className="bg-orange-200 text-orange-800 px-2 py-1 rounded text-sm">{transactions.filter(t => t.suspiciousReason.includes('Smurfing')).length}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded">
+              <span className="font-medium text-yellow-800">Layering Schemes</span>
+              <span className="bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-sm">{transactions.filter(t => t.suspiciousReason.includes('Layering')).length}</span>
+            </div>
+          </div>
+        </div>
+        {selectedNode && (
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h4 className="font-medium mb-4">Account Insights: {selectedNode.id}</h4>
+            <p className="text-sm text-gray-500 mb-4">
+              Graph mein node par click karke uski details dekho.
+            </p>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="font-medium">Total Transactions:</span>
+                <span>{selectedNode.transactions}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Total Amount Transacted:</span>
+                <span>${selectedNode.totalAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Risk Level:</span>
+                <span className={`px-2 py-1 text-xs rounded-full ${
+                  selectedNode.group === 3 ? 'bg-red-100 text-red-800' :
+                  selectedNode.group === 2 ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-green-100 text-green-800'
+                }`}>
+                  {selectedNode.group === 3 ? 'High' : selectedNode.group === 2 ? 'Medium' : 'Normal'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Transaction ki details dikhane wala modal
+  const TransactionDetailModal = ({ transaction, onClose }) => {
+    if (!transaction) return null;
+
+    const getStatusColor = (status) => {
+      switch(status) {
+        case 'suspicious': return 'bg-red-100 text-red-800';
+        case 'medium': return 'bg-yellow-100 text-yellow-800';
+        default: return 'bg-green-100 text-green-800';
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex justify-center items-center z-50">
+        <div className="relative p-8 bg-white w-full max-w-2xl rounded-lg shadow-xl">
+          <button 
+            onClick={onClose} 
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          >
+            <X size={24} />
+          </button>
+          <h2 className="text-2xl font-bold mb-4 text-gray-900">Transaction Analysis: {transaction.id}</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Transaction Details</h3>
+              <div className="space-y-2 text-sm text-gray-700">
+                <p><strong>Sender:</strong> {transaction.sender}</p>
+                <p><strong>Receiver:</strong> {transaction.receiver}</p>
+                <p><strong>Amount:</strong> ${transaction.amount.toLocaleString()} {transaction.currency}</p>
+                <p><strong>Date:</strong> {new Date(transaction.timestamp).toLocaleString()}</p>
+                <p><strong>Location:</strong> {transaction.location}</p>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Risk & Detection</h3>
+              <div className="space-y-2 text-sm text-gray-700">
+                <p>
+                  <strong>Status:</strong> 
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(transaction.status)}`}>
+                    {transaction.status.toUpperCase()}
+                  </span>
+                </p>
+                <p><strong>Risk Score:</strong> {transaction.riskScore}%</p>
+                {transaction.suspiciousReason && (
+                  <p><strong>Reason:</strong> <span className="text-red-500 font-medium">{transaction.suspiciousReason}</span></p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold mb-2">Behavioral Features</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
+              <p><strong>Velocity:</strong> {transaction.features.velocity} transactions/day</p>
+              <p><strong>Fan-out:</strong> {transaction.features.fanOut}</p>
+              <p><strong>Fan-in:</strong> {transaction.features.fanIn}</p>
+              <p><strong>PageRank:</strong> {transaction.features.pageRank}</p>
+              <p><strong>Amount Variation:</strong> {transaction.features.amountVariation}%</p>
+              <p><strong>Time Pattern:</strong> {transaction.features.timePattern}</p>
+            </div>
+          </div>
+
+          <div className="mt-8 flex justify-end space-x-4">
+            <button className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+              Generate Report
+            </button>
+            <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+              Flag for Investigation
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const AiChatbot = () => {
+    const messagesEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+      scrollToBottom();
+    }, [chatMessages]);
+
+    return (
+      <div className={`fixed bottom-4 right-4 z-50 transition-all duration-300 ${aiChatOpen ? 'w-80 h-96' : 'w-16 h-16'}`}>
+        {!aiChatOpen && (
+          <button
+            onClick={() => setAiChatOpen(true)}
+            className="w-16 h-16 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors"
+          >
+            <MessageCircle size={32} />
+          </button>
+        )}
+        {aiChatOpen && (
+          <div className="bg-white rounded-lg shadow-xl flex flex-col h-full">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-lg">AI Assistant</h3>
+              <button onClick={() => setAiChatOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 p-4 overflow-y-auto space-y-4">
+              {chatMessages.map((msg, index) => (
+                <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-xs p-3 rounded-lg ${msg.type === 'user' ? 'bg-blue-500 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
+                    <p className="text-sm">{msg.content}</p>
+                    <span className="block text-xs text-right opacity-75 mt-1">{msg.timestamp.toLocaleTimeString()}</span>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+            <form onSubmit={handleChatSubmit} className="p-4 border-t">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Ask a question..."
+                  className="flex-1 p-2 border rounded-lg"
+                />
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">Send</button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'monitor':
+        return <TransactionMonitor />;
+      case 'graph':
+        return <GraphAnalytics />;
+      default:
+        return <Dashboard />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 font-sans flex text-gray-800">
+      {/* Side mein navigation */}
+      <nav className="w-20 bg-gray-800 p-4 flex flex-col items-center shadow-lg">
+        <div className="flex-shrink-0 mb-8">
+          <Shield size={40} className="text-blue-400" />
+        </div>
+        <div className="flex flex-col space-y-4 w-full">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
+              activeTab === 'dashboard' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <Activity size={24} />
+            <span className="text-xs mt-1">Dashboard</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('monitor')}
+            className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
+              activeTab === 'monitor' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <Users size={24} />
+            <span className="text-xs mt-1">Monitor</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('graph')}
+            className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
+              activeTab === 'graph' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <Network size={24} />
+            <span className="text-xs mt-1">Graph</span>
+          </button>
+        </div>
+        <div className="mt-auto">
+          <button className="flex flex-col items-center p-3 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors">
+            <Settings size={24} />
+            <span className="text-xs mt-1">Settings</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Main content area */}
+      <div className="flex-1 p-8">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold">CyberShield Dashboard</h1>
+          <p className="text-gray-500">
+            Real-time financial crime detection and risk analysis.
+          </p>
+        </header>
+        {renderContent()}
+      </div>
+
+      {/* Transaction ki details dikhane wala modal */}
+      {selectedTransaction && <TransactionDetailModal transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />}
+
+      {/* AI Chatbot */}
+      <AiChatbot />
+    </div>
+  );
+};
+
+export default CyberShieldPrototype;
