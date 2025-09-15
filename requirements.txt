@@ -9,3 +9,5 @@ proglog==0.1.12
 psutil==7.0.0
 python-dotenv==1.1.1
 tqdm==4.67.1
+fastapi
+uvicorn
